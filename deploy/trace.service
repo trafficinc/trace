@@ -1,0 +1,27 @@
+[Unit]
+Description=TRACE private documentation server
+After=network.target
+
+[Service]
+Type=simple
+User=trace
+Group=trace
+WorkingDirectory=/opt/trace/current
+EnvironmentFile=/etc/trace/trace.env
+ExecStart=/opt/trace/current/.venv/bin/python scripts/serve.py
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=120
+UMask=0077
+LimitCORE=0
+LimitNOFILE=4096
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/trace
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

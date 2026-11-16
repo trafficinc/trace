@@ -1,0 +1,5 @@
+{% extends 'layouts/application.html' %}{% block title %}Operational dashboard · TRACE{% endblock %}
+{% block content %}
+<div class="trace-page-heading"><div><p class="trace-eyebrow">Operational workspace</p><h1>Your engagement work</h1><p class="trace-muted">Assigned engagements, testing priorities and recent team activity.</p></div><a class="btn trace-primary" href="{% url 'core:search' %}">Search workspace</a></div>
+{% include 'components/dashboard_engagements.html' %}
+{% endblock %}

@@ -1,0 +1,24 @@
+[
+  {
+    "name": "Service exposure review",
+    "title": "Review approved service exposure",
+    "category": "Network",
+    "description": "Document the services exposed by assets in the agreed assessment scope.",
+    "objective": "Identify differences between approved and observed service exposure.",
+    "methodology": "Compare approved inventory with observations gathered using the team's authorized assessment process.",
+    "procedure": "1. Confirm the asset and approved scope.\n2. Record expected services and access boundaries.\n3. Review observations from authorized assessment tooling.\n4. Compare observed exposure with the approved baseline.\n5. Record results and supporting references.",
+    "expected_result": "Observed exposure matches the approved service baseline.",
+    "is_active": true
+  },
+  {
+    "name": "Application authorization review",
+    "title": "Review application access boundaries",
+    "category": "Application authorization",
+    "description": "Document application access checks using approved assessment accounts.",
+    "objective": "Verify that application resources enforce the agreed role boundaries.",
+    "methodology": "Use approved accounts and the agreed authorization matrix to compare expected and observed access.",
+    "procedure": "1. Confirm written scope and approved accounts.\n2. Identify the applicable roles and expected resource permissions.\n3. Perform the authorized access checks.\n4. Compare actual access with the matrix.\n5. Record results, exceptions and local references.",
+    "expected_result": "Resources are available only to the intended authorized roles.",
+    "is_active": true
+  }
+]

@@ -1,0 +1,4 @@
+<section id="record-editor" class="card trace-form-card eng-editor"><a class="eng-back" href="{% if engagement %}{% url 'engagements:detail' engagement.pk %}{% else %}{% url 'engagements:list' %}{% endif %}">← {% if engagement %}{{ engagement.name }}{% else %}Engagements{% endif %}</a><p class="trace-eyebrow">Engagement workspace</p><h1>{{ title }}</h1>
+{% if engagement.is_read_only %}<p class="trace-notice">This engagement is now read-only. Your submitted draft is shown below.</p>{% endif %}
+{% include 'components/editor_activity.html' %}
+<form method="post" data-edit-form {% if enhance_htmx %}hx-post="{{ request.path }}" hx-target="#record-editor" hx-swap="outerHTML"{% endif %}>{% csrf_token %}{{ form.as_p }}<div class="eng-actions"><button class="btn trace-primary" type="submit">Save</button><a href="{% if engagement %}{% url 'engagements:detail' engagement.pk %}{% else %}{% url 'engagements:list' %}{% endif %}">Cancel</a></div></form></section>

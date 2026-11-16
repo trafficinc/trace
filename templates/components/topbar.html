@@ -1,0 +1,5 @@
+<header class="trace-topbar navbar">
+  <div class="trace-topbar-start"><button class="trace-menu btn" type="button" data-sidebar-toggle aria-controls="sidebar" aria-expanded="false" aria-label="Toggle navigation">☰</button>{% include 'components/breadcrumbs.html' %}</div>
+  <a class="trace-global-search" href="{% url 'core:search' %}">Search</a>
+  <nav class="trace-account-nav" aria-label="Account navigation"><a class="trace-username" href="{% url 'accounts:profile' %}">{{ user.get_username }}</a><a href="{% url 'accounts:password_change' %}">Password</a><form action="{% url 'accounts:logout' %}" method="post">{% csrf_token %}<button type="submit" class="btn trace-signout">Sign out</button></form></nav>
+</header>

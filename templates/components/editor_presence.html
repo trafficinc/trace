@@ -1,0 +1,4 @@
+<form method="post" action="{{ presence_url }}" data-editor-poll hx-history="false" hx-post="{{ presence_url }}" hx-trigger="{% if presence_active %}every 20s, {% endif %}submit" hx-swap="outerHTML">{% csrf_token %}
+<p role="status">{% if presence_names %}Also editing: {% for name in presence_names %}{{ name }}{% if not forloop.last %}, {% endif %}{% endfor %}.{% else %}No other active editors reported.{% endif %} Presence is informational; it does not lock this record.</p>
+{% if presence_active %}<button type="submit" name="leave" value="1">Stop sharing editor presence</button>{% else %}<button type="submit">Share editor presence</button>{% endif %}
+</form>

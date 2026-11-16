@@ -1,0 +1,10 @@
+{% extends 'layouts/application.html' %}
+{% block title %}Engagements · TRACE{% endblock %}
+{% block content %}
+<div class="trace-page-heading"><div><p class="trace-eyebrow">Assessment workspace</p><h1>Engagements</h1><p class="trace-muted">Scope, people and progress in one place.</p></div>{% if can_create %}<a class="btn trace-primary" href="{% url 'engagements:create' %}">+ New engagement</a>{% endif %}</div>
+<form class="eng-filters" method="get" action="{% url 'engagements:list' %}" hx-get="{% url 'engagements:list' %}" hx-target="#engagement-results" hx-push-url="true" hx-trigger="submit, change from:select, input changed delay:350ms from:input">
+<label for="eng-search">Search<input id="eng-search" type="search" name="q" value="{{ query }}" placeholder="Name, client or scope"></label>
+<label for="eng-status">Status<select id="eng-status" name="status"><option value="">All statuses</option>{% for value,label in statuses %}<option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+<label for="eng-sort">Sort by<select id="eng-sort" name="sort"><option value="-updated_at" {% if sort == '-updated_at' %}selected{% endif %}>Recently updated</option><option value="name" {% if sort == 'name' %}selected{% endif %}>Name A–Z</option><option value="-name" {% if sort == '-name' %}selected{% endif %}>Name Z–A</option><option value="client" {% if sort == 'client' %}selected{% endif %}>Client</option><option value="start_date" {% if sort == 'start_date' %}selected{% endif %}>Start date</option><option value="status" {% if sort == 'status' %}selected{% endif %}>Status</option></select></label><button class="btn trace-secondary" type="submit">Apply filters</button>
+</form><div id="engagement-results" aria-live="polite">{% include 'components/engagement_list.html' %}</div>
+{% endblock %}

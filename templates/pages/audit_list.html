@@ -1,0 +1,10 @@
+{% extends 'layouts/application.html' %}{% block content %}
+<h1>{% if engagement %}{{ engagement.name }} · {% else %}System · {% endif %}Audit history</h1>
+<p>Private, redacted business history. Actor IDs survive account deletion. Hashes detect some modifications; a privileged database administrator can rewrite the chain.</p>
+<form method="get" class="card eng-panel">{{ form.as_p }}<button type="submit">Filter history</button></form>
+<p>{% if engagement %}<a href="{% url 'audit:export' engagement.pk %}?{{ query }}">Export filtered JSON</a>{% else %}<a href="{% url 'system_audit:export' %}?{{ query }}">Export filtered JSON</a>{% endif %}</p>
+<div class="table-responsive"><table class="table"><thead><tr><th>Date (UTC)</th><th>Actor</th><th>Action</th><th>Entity</th><th>Sequence</th></tr></thead><tbody>
+{% for event in page %}<tr><td>{% if engagement %}<a href="{% url 'audit:detail' engagement.pk event.pk %}">{% else %}<a href="{% url 'system_audit:detail' event.pk %}">{% endif %}{{ event.created_at|date:'Y-m-d H:i:s' }}</a></td><td>{{ event.actor|default:'Deleted user / system' }} · {{ event.actor_ref }}</td><td>{{ event.get_action_display }}</td><td>{{ event.entity_kind }} <code>{{ event.subject_id }}</code>{% if event.legacy %} (legacy metadata){% endif %}</td><td>{{ event.chain_sequence }}</td></tr>{% empty %}<tr><td colspan="5">No matching events.</td></tr>{% endfor %}
+</tbody></table></div>
+{% if page.has_previous %}<a href="?{{ query }}&amp;page={{ page.previous_page_number }}">Previous</a>{% endif %} Page {{ page.number }} of {{ page.paginator.num_pages }} {% if page.has_next %}<a href="?{{ query }}&amp;page={{ page.next_page_number }}">Next</a>{% endif %}
+{% endblock %}

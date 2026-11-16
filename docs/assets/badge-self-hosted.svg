@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="164" height="30" viewBox="0 0 164 30" role="img" aria-label="Runs: Self-hosted">
+  <title>Runs: Self-hosted</title>
+  <defs><clipPath id="rounded"><rect width="164" height="30" rx="7"/></clipPath></defs>
+  <g clip-path="url(#rounded)">
+    <rect width="164" height="30" fill="#263249"/>
+    <rect x="55" width="109" height="30" fill="#245ad1"/>
+  </g>
+  <g fill="#ffffff" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="12" font-weight="600" text-anchor="middle">
+    <text x="27.5" y="20">Runs</text>
+    <text x="109.5" y="20">Self-hosted</text>
+  </g>
+</svg>

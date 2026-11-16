@@ -1,0 +1,97 @@
+services:
+  trace:
+    image: trace-local:0.1.0
+    build:
+      context: .
+      args:
+        WITH_POSTGRES: ${TRACE_WITH_POSTGRES:-0}
+    ports:
+      - "${TRACE_PUBLISH_IP:-127.0.0.1}:${TRACE_PUBLISH_PORT:-8000}:8000"
+    environment:
+      TRACE_STORAGE_ROOT: ${TRACE_CONTAINER_STORAGE_ROOT:-/storage}
+      TRACE_SECRET_KEY: ${TRACE_SECRET_KEY:?Set a private secret of at least 50 characters}
+      TRACE_ALLOWED_HOSTS: ${TRACE_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      TRACE_CSRF_TRUSTED_ORIGINS: ${TRACE_CSRF_TRUSTED_ORIGINS:-https://localhost}
+      TRACE_TRUST_PROXY: "1"
+      # Host proxy reaches the bridge gateway. Inspect it; never trust '*'.
+      TRACE_PROXY_IP: ${TRACE_PROXY_IP:-172.30.86.1}
+      TRACE_EVIDENCE_MAX_BYTES: ${TRACE_EVIDENCE_MAX_BYTES:-52428800}
+      TRACE_EVIDENCE_TOTAL_QUOTA_BYTES: ${TRACE_EVIDENCE_TOTAL_QUOTA_BYTES:-21474836480}
+      TRACE_EVIDENCE_ENGAGEMENT_QUOTA_BYTES: ${TRACE_EVIDENCE_ENGAGEMENT_QUOTA_BYTES:-5368709120}
+      TRACE_STORAGE_MIN_FREE_BYTES: ${TRACE_STORAGE_MIN_FREE_BYTES:-1073741824}
+      TRACE_STORAGE_WARNING_PERCENT: ${TRACE_STORAGE_WARNING_PERCENT:-20}
+      TRACE_UPLOAD_TEMP_MIN_FREE_BYTES: ${TRACE_UPLOAD_TEMP_MIN_FREE_BYTES:-16777216}
+      TRACE_HEALTH_HOST: ${TRACE_HEALTH_HOST:-localhost}
+      TRACE_DB_ENGINE: ${TRACE_DB_ENGINE:-sqlite}
+      TRACE_DB_NAME: ${TRACE_DB_NAME:-}
+      TRACE_DB_USER: ${TRACE_DB_USER:-}
+      TRACE_DB_PASSWORD: ${TRACE_DB_PASSWORD:-}
+      TRACE_DB_HOST: ${TRACE_DB_HOST:-127.0.0.1}
+      TRACE_DB_PORT: ${TRACE_DB_PORT:-5432}
+      TRACE_DB_SSLMODE: ${TRACE_DB_SSLMODE:-prefer}
+      DJANGO_SETTINGS_MODULE: config.settings.production
+    volumes:
+      - tdt-data:/storage
+    networks:
+      private:
+        ipv4_address: 172.30.86.2
+    restart: unless-stopped
+    stop_grace_period: 120s
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=268435456
+    ulimits:
+      core:
+        soft: 0
+        hard: 0
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "5"
+  proxy:
+    image: nginx:stable-alpine
+    profiles: [https]
+    read_only: true
+    tmpfs:
+      - /etc/nginx/conf.d:rw,noexec,nosuid,nodev,size=1048576
+      - /var/cache/nginx:rw,noexec,nosuid,nodev,size=268435456
+      - /var/run:rw,noexec,nosuid,nodev,size=1048576
+    ulimits:
+      core:
+        soft: 0
+        hard: 0
+    depends_on:
+      trace:
+        condition: service_healthy
+    ports:
+      - "${TRACE_HTTPS_PUBLISH_IP:-127.0.0.1}:${TRACE_HTTPS_PUBLISH_PORT:-8443}:443"
+    environment:
+      TRACE_PROXY_SERVER_NAME: ${TRACE_PROXY_SERVER_NAME:-localhost}
+    volumes:
+      - ./deploy/container-nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ${TRACE_TLS_DIRECTORY:-./deploy/tls}:/etc/nginx/tls:ro
+    networks:
+      private:
+        ipv4_address: 172.30.86.3
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+networks:
+  private:
+    ipam:
+      config:
+        - subnet: 172.30.86.0/29
+volumes:
+  # Preserve the existing data volume across upgrades and rebranding.
+  tdt-data:

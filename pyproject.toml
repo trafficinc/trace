@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trace-redteam"
+version = "0.1.0"
+description = "TRACE — Test Records, Assessment & Collaborative Evidence for Red Teams"
+requires-python = ">=3.13,<3.14"
+license = "MIT"
+dependencies = [
+  "Django>=5.2.19,<5.3",
+  "waitress>=3.0.2,<4",
+  "whitenoise>=6.9,<7",
+  "Pillow>=12.2,<14",
+  "python-docx>=1.2,<2",
+  "WeasyPrint>=70,<71",
+]
+
+[project.optional-dependencies]
+postgres = ["psycopg[binary]>=3.2,<4"]
+test = ["pytest>=8.3,<10", "pytest-django>=4.11,<5"]
+
+[tool.setuptools.packages.find]
+include = ["config*", "apps*"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+python_files = ["test_*.py"]
+testpaths = ["tests"]
+addopts = "--strict-markers"
+
+[tool.ruff]
+# Historical applied migrations are preserved; their SQL is covered by integration tests.
+extend-exclude = ["**/migrations/**"]
+
+[tool.ruff.lint]
+select = ["F", "E9"]
+
+[tool.mypy]
+files = ["apps", "config", "scripts"]
+ignore_missing_imports = true
+follow_imports = "skip"
+check_untyped_defs = true
+allow_redefinition = true
+# Django's dynamic ORM is not fully typed here; see the review's coverage limits.
+
+[tool.bandit]
+exclude_dirs = ["tests", "scripts/check_postgres.py", "apps/accounts/migrations", "apps/admin/migrations", "apps/assets/migrations", "apps/audit/migrations", "apps/core/migrations", "apps/engagements/migrations", "apps/evidence/migrations", "apps/findings/migrations", "apps/reports/migrations", "apps/testcases/migrations"]

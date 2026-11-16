@@ -1,0 +1,5 @@
+{% extends 'layouts/application.html' %}{% block title %}Workspace search · TRACE{% endblock %}{% block content %}
+<h1>Workspace search</h1><p>Search documentation in engagements you can currently access. Evidence search covers filenames and descriptions.</p>
+<form method="get" action="{% url 'core:search' %}" class="card eng-panel trace-search-form" role="search" aria-label="Workspace search" hx-get="{% url 'core:search' %}" hx-target="#search-results" hx-swap="outerHTML" hx-push-url="false">
+{{ search_form.as_p }}<button class="btn trace-primary" type="submit">Search</button></form>
+{% include 'components/search_results.html' %}{% endblock %}

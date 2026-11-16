@@ -1,0 +1,20 @@
+<aside id="sidebar" class="trace-sidebar" aria-label="Workspace navigation">
+  <button class="btn trace-sidebar-close" type="button" data-sidebar-toggle aria-controls="sidebar" aria-expanded="false" aria-label="Close navigation">Close navigation ×</button>
+  {% include 'components/brand.html' with show_tagline=True only %}
+  <p class="trace-nav-label">Workspace</p>
+  <nav class="nav flex-column trace-nav" aria-label="Main navigation">
+    <a class="nav-link {% if request.resolver_match.url_name == 'search' %}active{% endif %}" href="{% url 'core:search' %}">Search workspace</a>
+    <a class="nav-link {% if request.resolver_match.namespace == 'core' and request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'core:dashboard' %}">Overview</a>
+    <a class="nav-link {% if request.resolver_match.namespace == 'engagements' %}active{% endif %}" href="{% url 'engagements:list' %}">Engagements</a>
+    {% if engagement %}<a class="nav-link {% if request.resolver_match.namespace == 'assets' %}active{% endif %}" href="{% url 'assets:list' engagement.pk %}">Assets</a>{% else %}<span class="nav-link" aria-disabled="true">Assets <small>Open engagement</small></span>{% endif %}
+    {% if engagement %}<a class="nav-link {% if request.resolver_match.namespace == 'testcases' %}active{% endif %}" href="{% url 'testcases:list' engagement.pk %}">Test cases</a>{% else %}<span class="nav-link" aria-disabled="true">Test cases <small>Open engagement</small></span>{% endif %}<a class="nav-link {% if request.resolver_match.namespace == 'test_templates' %}active{% endif %}" href="{% url 'test_templates:list' %}{% if engagement %}?engagement={{ engagement.pk }}{% endif %}">Test templates</a>
+    {% if engagement %}<a class="nav-link {% if request.resolver_match.namespace == 'findings' %}active{% endif %}" href="{% url 'findings:list' engagement.pk %}">Findings</a>{% else %}<span class="nav-link" aria-disabled="true">Findings <small>Open engagement</small></span>{% endif %}<a class="nav-link" href="{% url 'finding_templates:list' %}">Finding templates</a>
+    {% if engagement %}<a class="nav-link {% if request.resolver_match.namespace == 'evidence' %}active{% endif %}" href="{% url 'evidence:list' engagement.pk %}">Evidence</a>{% else %}<span class="nav-link" aria-disabled="true">Evidence <small>Open engagement</small></span>{% endif %}
+    {% if engagement and can_generate_reports %}<a class="nav-link {% if request.resolver_match.namespace == 'reports' %}active{% endif %}" href="{% url 'reports:list' engagement.pk %}">Reports</a>{% else %}<span class="nav-link" aria-disabled="true">Reports <small>{% if engagement %}Role restricted{% else %}Open engagement{% endif %}</small></span>{% endif %}
+    {% if engagement and can_view_audit %}<a class="nav-link {% if request.resolver_match.namespace == 'audit' %}active{% endif %}" href="{% url 'audit:list' engagement.pk %}">Audit history</a>{% endif %}
+  </nav>
+  {% if user.is_superuser %}<div class="trace-admin-link"><a class="nav-link" href="{% url 'core:storage_status' %}">Storage capacity</a><p class="trace-nav-label">Manage</p><a class="nav-link" href="{% url 'system_audit:list' %}">System audit</a><a class="nav-link" href="{% url 'accounts:users' %}">Users</a><a class="nav-link" href="{% url 'admin:index' %}">Administration ↗</a></div>{% endif %}
+  <div class="trace-sidebar-bottom">
+    <div class="trace-sidebar-footer"><span class="trace-dot" aria-hidden="true"></span> Self-hosted workspace</div>
+  </div>
+</aside>

@@ -1,0 +1,2 @@
+{% extends 'layouts/application.html' %}
+{% block content %}<p class="trace-eyebrow">Engagement access</p><h1>{{ engagement.name }}</h1><p class="trace-muted">Leads manage access. Roles apply only to this engagement. Revocations take effect on the next request.</p>{% include 'components/membership_table.html' %}<section class="card trace-form-card"><h2>Grant access</h2><form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit" class="btn trace-primary">Grant membership</button></form></section>{% endblock %}

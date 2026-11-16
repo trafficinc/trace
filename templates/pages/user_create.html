@@ -1,0 +1,2 @@
+{% extends 'layouts/application.html' %}
+{% block content %}<section class="card trace-form-card"><a href="{% url 'accounts:users' %}">← Users</a><h1>Create user</h1><p class="trace-muted">New accounts have no engagement access until a Lead or System Admin grants it.</p><form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit" class="btn trace-primary">Create user</button></form></section>{% endblock %}

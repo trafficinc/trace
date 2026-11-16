@@ -1,0 +1,6 @@
+<nav aria-label="Breadcrumb" class="trace-breadcrumb"><ol class="breadcrumb mb-0">
+<li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}" title="Workspace">Workspace</a></li>
+{% if engagement %}<li class="breadcrumb-item"><a href="{% url 'engagements:list' %}" title="Engagements">Engagements</a></li><li class="breadcrumb-item"><a href="{% url 'engagements:detail' engagement.pk %}" title="{{ engagement.name }}" aria-label="{{ engagement.name }}">{{ engagement.name|truncatechars:20 }}</a></li>{% endif %}
+{% if navigation_section_url %}<li class="breadcrumb-item"><a href="{{ navigation_section_url }}" title="{{ navigation_section }}" aria-label="{{ navigation_section }}">{{ navigation_section|truncatechars:20 }}</a></li>{% endif %}
+<li class="breadcrumb-item active" aria-current="page" title="{{ navigation_page }}" aria-label="{{ navigation_page }}">{{ navigation_page|truncatechars:20 }}</li>
+</ol></nav>

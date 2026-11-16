@@ -1,0 +1,2 @@
+/* Keep every section reachable when JavaScript is disabled. */
+@media(max-width:760px){.trace-shell{flex-direction:column}.trace-sidebar{display:flex;position:static;width:100%;height:auto;box-shadow:none}.trace-menu,.trace-sidebar-close{display:none}.trace-topbar{position:static}}

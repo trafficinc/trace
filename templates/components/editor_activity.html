@@ -1,0 +1,4 @@
+{% if editor.record %}<aside class="card eng-panel editor-activity" aria-label="Saved status and optional editor presence" hx-history="false">
+{% include 'components/editor_status.html' with record=editor.record loaded_version=editor.loaded_version poll_url=editor.status_url %}
+{% if editor_presence_enabled and vendor_ready %}{% include 'components/editor_presence.html' with presence_url=editor.presence_url %}{% endif %}
+</aside>{% endif %}

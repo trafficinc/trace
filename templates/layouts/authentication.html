@@ -1,0 +1,11 @@
+{% extends 'layouts/base.html' %}
+{% block body %}
+<main id="main-content" class="trace-auth" tabindex="-1">
+  {% include 'components/brand.html' only %}
+  <section class="card trace-auth-card">
+    {% include 'components/messages.html' %}
+    {% block content %}{% endblock %}
+  </section>
+  <p class="trace-caption">Test Records, Assessment &amp; Collaborative Evidence · Self-hosted</p>
+</main>
+{% endblock %}

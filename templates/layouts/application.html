@@ -1,0 +1,17 @@
+{% extends 'layouts/base.html' %}
+{% block body %}
+<div class="trace-shell" hx-history="false">
+  {% include 'components/sidebar.html' %}
+  <div class="trace-workspace">
+    {% include 'components/topbar.html' %}
+    <main id="main-content" class="container-fluid trace-content" tabindex="-1">
+      {% include 'components/messages.html' %}
+      {% if engagement.report_classification %}<div class="eng-marking" aria-label="Classification and handling marking">{{ engagement.report_classification }}</div>{% endif %}
+      {% if form.errors %}<section class="alert alert-danger trace-form-errors" tabindex="-1" role="alert" aria-label="Validation errors"><h2>Check the form</h2><p>Your changes have not been saved. Review the errors beside each field.</p>{{ form.non_field_errors }}</section>{% endif %}
+      {% block content %}{% endblock %}
+      {% if engagement.report_classification %}<div class="eng-marking eng-bottom-marking">{{ engagement.report_classification }}</div>{% endif %}
+    </main>
+    <footer class="trace-footer">TRACE <span>Private documentation workspace</span></footer>
+  </div>
+</div>
+{% endblock %}

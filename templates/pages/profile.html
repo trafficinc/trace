@@ -1,0 +1,14 @@
+{% extends 'layouts/application.html' %}
+{% block content %}
+<section class="card trace-form-card">
+  <p class="trace-eyebrow">Account</p>
+  <h1>Your profile</h1>
+  <p class="trace-muted">Username: {{ user.get_username }}{% if user.is_superuser %} · System Admin{% endif %}</p>
+  {% include 'components/editor_activity.html' %}<form method="post" data-edit-form>{% csrf_token %}{{ form.as_p }}<button type="submit" class="btn trace-primary">Save profile</button></form>
+  <p><a href="{% url 'accounts:password_change' %}">Change password</a></p>
+  <div class="trace-profile-appearance">
+    {% include 'components/theme_picker.html' only %}
+    <p class="helptext">Appearance changes apply immediately and are saved in this browser.</p>
+  </div>
+</section>
+{% endblock %}

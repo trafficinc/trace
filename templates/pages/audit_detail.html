@@ -1,0 +1,7 @@
+{% extends 'layouts/application.html' %}{% block content %}
+<h1>{{ event.get_action_display }}</h1><p>{{ event.created_at|date:'Y-m-d H:i:s' }} UTC · Actor {{ event.actor|default:'Deleted user / system' }} ({{ event.actor_ref }})</p>
+<p>{{ event.entity_kind }} <code>{{ event.subject_id }}</code> · Sequence {{ event.chain_sequence }}</p>
+{% if event.legacy %}<p>Legacy metadata sealed during migration. Earlier business values were not available and have not been reconstructed.</p>{% endif %}
+<table class="table"><thead><tr><th>Business field</th><th>Before</th><th>After</th></tr></thead><tbody>{% for row in changes %}<tr><th>{{ row.field }}{% if row.changed %} · changed{% endif %}</th><td><pre class="work-prose">{{ row.before }}</pre></td><td><pre class="work-prose">{{ row.after }}</pre></td></tr>{% empty %}<tr><td colspan="3">This event has no business-field snapshot.</td></tr>{% endfor %}</tbody></table>
+<h2>Event metadata</h2><pre class="work-prose">{{ metadata }}</pre><h2>Chain commitments</h2><p>Previous: <code>{{ event.previous_hash }}</code></p><p>Record: <code>{{ event.record_hash }}</code></p>
+{% endblock %}

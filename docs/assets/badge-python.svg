@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="30" viewBox="0 0 120 30" role="img" aria-label="Python: 3.13">
+  <title>Python: 3.13</title>
+  <defs><clipPath id="rounded"><rect width="120" height="30" rx="7"/></clipPath></defs>
+  <g clip-path="url(#rounded)">
+    <rect width="120" height="30" fill="#263249"/>
+    <rect x="64" width="56" height="30" fill="#245ad1"/>
+  </g>
+  <g fill="#ffffff" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="12" font-weight="600" text-anchor="middle">
+    <text x="32.0" y="20">Python</text>
+    <text x="92.0" y="20">3.13</text>
+  </g>
+</svg>

@@ -1,0 +1,1 @@
+<section class="card eng-panel"><h2>Evidence</h2>{% for item in related_evidence %}<p><a href="{% url 'evidence:detail' engagement.pk item.pk %}">{{ item.original_filename }}</a></p>{% empty %}<p>No evidence linked.</p>{% endfor %}<a href="{% url 'evidence:list' engagement.pk %}">Engagement evidence</a></section>

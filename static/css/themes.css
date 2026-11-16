@@ -1,0 +1,131 @@
+/* Packaged Inter Latin subset (OFL); no external font service. */
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 400; font-display: swap; src: url("../vendor/inter-latin.woff2") format("woff2"); }
+/* Shared surfaces keep every palette readable, including native form controls. */
+:root {
+  color-scheme: light;
+  --trace-bg: #f3f5f8;
+  --trace-surface: #ffffff;
+  --trace-ink: #172033;
+  --trace-muted: #526076;
+  --trace-line: #dce2eb;
+  --trace-input-line: #7c8aa0;
+  --trace-accent: #245ad1;
+  --trace-accent-hover: #1b47ab;
+  --trace-on-accent: #ffffff;
+  --trace-soft: #eaf0ff;
+  --trace-neutral-bg: #e9edf3;
+  --trace-neutral-ink: #4a566b;
+  --trace-warning-bg: #fff0d4;
+  --trace-warning-ink: #77500c;
+  --trace-danger-bg: #fce8e8;
+  --trace-danger-ink: #a12e39;
+  --trace-marking-bg: #263249;
+  --trace-marking-ink: #ffffff;
+  --trace-shadow: #17203324;
+  --bs-body-font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+:root[data-trace-palette="graphite"] {
+  --trace-bg: #f4f4f5;
+  --trace-surface: #ffffff;
+  --trace-ink: #202023;
+  --trace-muted: #62626a;
+  --trace-line: #dcdce0;
+  --trace-input-line: #85858e;
+  --trace-accent: #3f3f46;
+  --trace-accent-hover: #26262c;
+  --trace-on-accent: #ffffff;
+  --trace-soft: #eaeaed;
+  --trace-neutral-bg: #eaeaed;
+  --trace-neutral-ink: #55555e;
+  --trace-marking-bg: #303037;
+}
+
+:root[data-trace-palette="ubuntu"] {
+  --trace-bg: #f7f4f6;
+  --trace-surface: #ffffff;
+  --trace-ink: #2c1729;
+  --trace-muted: #6e596a;
+  --trace-line: #e2d8df;
+  --trace-input-line: #947e8e;
+  --trace-accent: #ae380e;
+  --trace-accent-hover: #892b09;
+  --trace-on-accent: #ffffff;
+  --trace-soft: #fcece5;
+  --trace-neutral-bg: #ede6eb;
+  --trace-neutral-ink: #6e596a;
+  --trace-marking-bg: #41263c;
+}
+
+:root[data-bs-theme="dark"] {
+  color-scheme: dark;
+  --trace-bg: #101722;
+  --trace-surface: #182230;
+  --trace-ink: #edf2fa;
+  --trace-muted: #adbed4;
+  --trace-line: #334157;
+  --trace-input-line: #6b7d96;
+  --trace-accent: #8ab4ff;
+  --trace-accent-hover: #b0ceff;
+  --trace-on-accent: #101722;
+  --trace-soft: #223858;
+  --trace-neutral-bg: #293345;
+  --trace-neutral-ink: #bdc9dc;
+  --trace-warning-bg: #41321c;
+  --trace-warning-ink: #f6cc81;
+  --trace-danger-bg: #44272e;
+  --trace-danger-ink: #ffb2bc;
+  --trace-marking-bg: #c6d3e8;
+  --trace-marking-ink: #182230;
+  --trace-shadow: #00000055;
+}
+
+:root[data-trace-palette="graphite"][data-bs-theme="dark"] {
+  --trace-bg: #161618;
+  --trace-surface: #202023;
+  --trace-ink: #f1f1f3;
+  --trace-muted: #b6b6bf;
+  --trace-line: #3e3e44;
+  --trace-input-line: #7c7c86;
+  --trace-accent: #d4d4dc;
+  --trace-accent-hover: #f1f1f3;
+  --trace-on-accent: #202023;
+  --trace-soft: #36363e;
+  --trace-neutral-bg: #36363e;
+  --trace-neutral-ink: #c6c6ce;
+  --trace-marking-bg: #d4d4dc;
+  --trace-marking-ink: #202023;
+}
+
+:root[data-trace-palette="ubuntu"][data-bs-theme="dark"] {
+  --trace-bg: #20151f;
+  --trace-surface: #2c1d2b;
+  --trace-ink: #faf1f7;
+  --trace-muted: #cbb7c6;
+  --trace-line: #503b4c;
+  --trace-input-line: #9d7e94;
+  --trace-accent: #f58c5c;
+  --trace-accent-hover: #ffb28d;
+  --trace-on-accent: #23151c;
+  --trace-soft: #4b2d28;
+  --trace-neutral-bg: #43313f;
+  --trace-neutral-ink: #d2bfcd;
+  --trace-marking-bg: #dec9d8;
+  --trace-marking-ink: #2c1d2b;
+}
+
+/* Keep Bootstrap's tables, cards and controls on the application palette. */
+:root,
+:root[data-bs-theme] {
+  --bs-body-color: var(--trace-ink);
+  --bs-body-bg: var(--trace-bg);
+  --bs-secondary-color: var(--trace-muted);
+  --bs-secondary-bg: var(--trace-soft);
+  --bs-tertiary-bg: var(--trace-bg);
+  --bs-emphasis-color: var(--trace-ink);
+  --bs-border-color: var(--trace-line);
+  --bs-primary: var(--trace-accent);
+  --bs-link-color: var(--trace-accent);
+  --bs-link-hover-color: var(--trace-accent-hover);
+  --bs-code-color: var(--trace-accent);
+}

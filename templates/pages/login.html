@@ -1,0 +1,3 @@
+{% extends 'layouts/authentication.html' %}
+{% block title %}Sign in · TRACE{% endblock %}
+{% block content %}<p class="trace-eyebrow">Your documentation workspace</p><h1>Sign in to TRACE</h1><p class="trace-muted">Use the account provided by your administrator.</p>{% if request.trace_login_retry_after %}<div class="trace-notice" role="alert">Too many sign-in attempts. Try again later.</div>{% endif %}<form method="post">{% csrf_token %}{{ form.as_p }}<input type="hidden" name="next" value="{{ next }}"><button class="btn btn-primary trace-primary" type="submit">Sign in</button></form>{% endblock %}

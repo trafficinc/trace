@@ -1,0 +1,24 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="htmx-config" content='{"includeIndicatorStyles":false,"allowEval":false,"allowScriptTags":false,"historyRestoreAsHxRequest":false}'>
+  <title>{% block title %}TRACE · Test Records, Assessment &amp; Collaborative Evidence{% endblock %}</title>
+  <script src="{% static 'js/theme.js' %}"></script>
+  {% if vendor_ready %}
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap.min.css' %}">
+  <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
+  <script src="{% static 'vendor/alpine-csp.min.js' %}" defer></script>
+  {% endif %}
+  <link rel="stylesheet" href="{% static 'css/themes.css' %}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <script src="{% static 'js/app.js' %}" defer></script>
+  <noscript><link rel="stylesheet" href="{% static 'css/no-script.css' %}"></noscript>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  {% block body %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,11 @@
+<section class="card eng-panel edit-conflict" hx-history="false" aria-label="Editing conflict review">
+{% if engagement.report_classification %}<div class="eng-marking">{{ engagement.report_classification }}</div>{% endif %}
+<h1>{% if merge_ready %}Review your manual merge{% else %}Resolve editing conflict{% endif %}</h1>
+{% if merge_ready %}<p>No changes have been saved. Review and edit your draft below, then save against the version you explicitly reviewed.</p>{% else %}<p>This record changed. Your submitted draft is preserved below. Compare it with the current saved values before continuing.</p>{% endif %}
+{% if current_version %}<p>Your loaded version: {{ submitted_version }} · Current saved version: {{ current_version }}</p>{% endif %}
+{% if conflict_rows %}<div class="trace-table-wrap"><table class="table"><thead><tr><th>Field</th><th>Your submitted values</th><th>Current saved values</th></tr></thead><tbody>{% for row in conflict_rows %}<tr><th>{{ row.label }}</th><td class="work-prose">{{ row.submitted }}</td><td class="work-prose">{{ row.current }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+<p><a href="{{ reload_url }}" target="_blank" rel="noopener">Open current saved version in a new tab</a>. This keeps your draft here for copying or manual merging.</p>
+<form method="post" action="{{ request.path }}" data-edit-form data-preserved-draft hx-post="{{ request.path }}" hx-target="closest .edit-conflict" hx-swap="outerHTML">{% csrf_token %}<input type="hidden" name="_merge_form" value="1">
+{{ form.as_p }}{% if conflict_extra_template %}{% include conflict_extra_template %}{% endif %}{% if version_form %}{{ version_form.version }}{% endif %}
+{% if merge_ready %}<button class="btn trace-primary" type="submit">Save manually merged values</button>{% elif can_merge %}<button class="btn trace-primary" name="_prepare_merge" value="{{ merge_token }}" type="submit">Use reviewed version for manual merge</button>{% else %}<p>The current record cannot be merged here. Keep this draft and use the saved-record link to continue.</p>{% endif %}
+{% if sensitive_conflict %}<p>Password values are never displayed or copied. Re-enter them in the password form.</p>{% endif %}</form></section>
