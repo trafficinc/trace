@@ -1,29 +1,25 @@
-# Findings workflow
+# Findings
 
-Open an engagement and choose **Findings → New finding**, or choose a shared **Finding template**, then an authorized engagement. Copying creates an independent draft. The list supports severity/status filters, bounded text search and deterministic sorting/pagination. Completed/archived engagements are read-only.
+Open **Findings → New finding** within an engagement, or copy a shared template. Filter the list by severity/status or search its text. Completed/archived engagements are read-only.
 
-Lead, Tester and System Admin can edit draft content and relationships. Submit a draft for review to freeze its content. A Lead, Reviewer or System Admin other than its author can confirm it. Reviewers can return submitted findings to draft for corrections. Confirmed findings can become remediated or accepted risk. Reopening a confirmed, remediated or accepted-risk finding returns it to review; a reviewer can then return it to draft. Existing permissions require Lead/Tester/Admin to submit or reopen. Approval always requires another person.
+## Access and review
 
-Every edit and transition includes the saved version. A stale change returns HTTP 409 with submitted and saved values side by side. Open the saved record in a new tab or explicitly prepare and save a manual merge; see [concurrent editing](concurrent-editing.md). Membership/engagement authorization is checked again inside the mutation. Asset and test-case choices belong to the same engagement; attribution never grants access.
+Leads, Testers and System Admins edit draft content and related assets/tests. Relationships stay within the engagement. Submit a draft to freeze its content for review.
+
+A Lead, Reviewer or System Admin other than the author can confirm it or return it to draft for corrections. Authors cannot approve their own findings. Confirmed findings can become remediated or accepted risk. Reopening returns them to review; a reviewer can then return them to draft. Submission/reopening requires Lead, Tester or Admin.
+
+Edits and transitions are versioned. HTTP 409 preserves stale drafts for [conflict review](concurrent-editing.md). [Revision history](audit-history.md) lets members inspect retained versions without overwriting current content.
 
 ## Narrative formatting
 
-Description, technical details, impact, reproduction steps, remediation recommendations and references support:
-
-- Headings with `#` through `####`.
-- `**bold**` and `*emphasis*`.
-- Lists using `- ` or numbered steps using `1. `.
-- Inline backticks and triple-backtick fenced code blocks.
-- Links using `[label](https://example.com)` (HTTP/HTTPS only).
-
-HTML is escaped and displayed as text. Images, scripts, styles and embedded content are unsupported. Local citations can be plain text. No reference is fetched. Original text and code indentation remain available for future reports. This is a limited formatting syntax, not full Markdown.
+Narratives support headings (`#` through `####`), bold/emphasis, bullet/numbered lists, inline/fenced code and HTTP/HTTPS links. Code indentation is preserved. HTML is escaped; images, scripts, styles and embedded content are unsupported. Plain local citations are allowed. References are never fetched. This is a limited syntax rather than full Markdown.
 
 ## CVSS
 
-Optional CVSS vectors must be complete CVSS 3.0/3.1 base vectors containing each of AV, AC, PR, UI, S, C, I and A exactly once. Extended vectors and CVSS 2/4 are currently unsupported. A maintained calculator could not be installed because package network access was unavailable; scores remain unset rather than accepting a submitted or guessed score. Severity is an explicit tester selection.
+Optional vectors must be complete CVSS 3.0/3.1 base vectors with AV, AC, PR, UI, S, C, I and A each present once. Extended vectors and CVSS 2/4 are unsupported. Scores are not calculated; select severity explicitly.
 
-## Shared templates and future modules
+## Templates and related workflows
 
-System Admins curate generic shared definitions. Never enter customer information in a shared template. Templates have no engagement, assets, tests, finding status, customer author or reviewer. A copy records the template version, starts as draft and never changes after template updates/retirement. Retire a template by clearing Available in its editor.
+System Admins curate generic shared templates. Keep customer information out of them. Copies record the template version, start as independent drafts and omit customer relationships/review state. Template changes or retirement never update existing findings. Clear **Available** to retire a template.
 
-Findings have private [evidence attachments](evidence.md) through engagement-scoped links. Narrative revision history remains deferred. [Reports](reports.md) retain source snapshots and let authorized users include/exclude/order findings. Findings block operator engagement purges until a reviewed retention workflow is available.
+Attach private [evidence](evidence.md) through scoped links and select findings in [reports](reports.md). Findings block operator engagement purges until a reviewed retention workflow exists.

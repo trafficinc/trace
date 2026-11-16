@@ -1,10 +1,10 @@
 # Upgrade and rollback
 
-Use the complete [operations procedure](operations.md#updates-rollback-and-recovery), not an in-place dependency update on a running instance.
+## Update
 
-Prepare pinned wheels/images and verify vendor hashes on a connected preparation machine. Rehearse the release on a separately restored backup. Drain access, stop all writers and create/validate a coordinated database/private-file backup under exclusive maintenance. Preserve the prior code/image, protected configuration, secret and backup.
-
-Install the new release in a new virtualenv or image. With the explicit production environment loaded, run:
+1. Prepare a reviewed release with matching pinned wheels/native dependencies, verified vendor assets and any container images. Rehearse on an isolated restored backup. Preserve the prior release, protected configuration and secret.
+2. Enter [maintenance](operations.md#maintenance-and-readiness), stop all writers and create/validate a coordinated database/private-file backup.
+3. Install into a new virtualenv/image rather than updating the running release. Load its protected production environment, then run:
 
 ```sh
 python manage.py migrate --noinput --settings=config.settings.production
@@ -14,9 +14,13 @@ python manage.py check --deploy --fail-level WARNING --settings=config.settings.
 python manage.py verify_audit --admin ADMIN_USERNAME --settings=config.settings.production
 ```
 
-Use `configure_sqlite` only for SQLite, while workers are stopped. Validate loopback readiness, HTTPS login, engagement isolation, evidence integrity and all three report formats before reopening access.
+Use `configure_sqlite` only for SQLite, with workers stopped. Start on loopback and validate readiness, HTTPS login, engagement isolation, evidence integrity and all three report formats before reopening access. Keep the old release/backup through the recovery window.
 
-If schema changes have run, rollback means restoring the matching pre-upgrade database **and private files into a new root**, then selecting the prior release/configuration. Do not assume old code supports the new schema. Account for writes accepted after the backup. Never overwrite a live database, discard a named data volume or execute a live engagement purge as a recovery shortcut.
+## Rollback
+
+Before schema changes, return to the untouched prior release if compatible. After schema changes, restore the matching pre-update database **and private files into a new root**, select the prior release/configuration and revalidate. See [restore](operations.md#restore-without-overwriting-a-live-installation).
+
+Old code may not support a new schema. Reverse migrations require a rehearsed data-preserving plan. Reverting to a backup loses later writes unless separately reconciled. Never overwrite a live database, remove a named data volume or purge engagements as a recovery shortcut.
 
 ## Configuration compatibility
 

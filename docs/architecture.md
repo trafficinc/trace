@@ -1,156 +1,74 @@
-# TRACE architecture
+# Architecture
 
-TRACE runs as one Django service, either locally or on a server for a team on a private LAN or VPN. Browsers share application data; the host owns its local SQLite files and private storage. The modular monolith uses domain packages without introducing network boundaries between them.
+TRACE is a Python 3.13 / Django 5.2 LTS modular monolith: one application serves browser pages and owns the database and private files. SQLite is the default; PostgreSQL is optional. Runtime assets and report rendering work offline.
 
 ## Repository structure
 
-- `config/settings/`: base, development, production and isolated test settings.
-- `config/urls.py`, `asgi.py`, `wsgi.py`: application entry points.
-- `apps/accounts/`: custom User, account forms/services, authentication backend, throttle state, auth signals and user pages.
-- `apps/engagements/`: versioned engagement metadata/lifecycle, scoped membership roles, notes, milestones, central policy, workflow services and mission-style pages.
-- `apps/audit/`: transactional redacted before/after events, finding/test-case revisions, scoped history/export, hash-chain verification and operator retention.
-- `apps/core/`: dashboard, health probe, CAS primitives, conflict review, scoped editor status/presence, operational dashboard aggregates, authorized workspace search, shared Bootstrap rendering, common HTTP errors, request logging, security headers, vendor checks and SQLite setup.
-- `apps/assets/`: scoped inventory, type/address/owner validation, indexed filtering and versioned services.
-- `apps/testcases/`: structured records, explicit asset links, scoped assignment, state workflow, discussion, references and shared local template snapshots.
-- `apps/findings/`: narrative definitions, engagement relationships, review workflow, reusable templates and safe formatting.
-- `apps/evidence/`: private files, immutable provenance, scoped associations, streamed upload limits, isolated image parsing, integrity checks and committed removal.
-- `apps/reports/`: versioned report setup/templates, read-consistent snapshots, DOCX/HTML/PDF adapters, private artifacts, revision history and export authorization.
-- `templates/layouts`, `components`, `pages`: presentation composition.
-- `static/css`, `js`, `vendor`, `images`: public local assets.
-- `storage/db`, `evidence`, `reports`, `backups`: private operator-owned data, excluded from source control.
-- `report_templates`: reserved for future report templates.
-- `tests`, `scripts`, `docs`: verification, preparation and documentation.
+| Location | Responsibility |
+| --- | --- |
+| `config/` | Settings, URLs and WSGI/ASGI entry points |
+| `apps/accounts/` | Custom user, authentication, throttling and account administration |
+| `apps/engagements/` | Engagements, memberships, central permissions, notes and milestones |
+| `apps/assets/` | Engagement inventory |
+| `apps/testcases/` | Test procedures, execution, discussion, references and templates |
+| `apps/findings/` | Findings, independent review and shared definitions |
+| `apps/evidence/` | Private uploads, integrity, quotas and cleanup |
+| `apps/reports/` | Report setups, snapshots, rendering and private artifacts |
+| `apps/audit/` | Business history, revisions, verification and retention |
+| `apps/core/` | Shared HTTP, concurrency, database, logging, dashboard and storage helpers |
+| `templates/`, `static/` | Django presentation and local CSS, JavaScript, fonts and vendor assets |
+| `report_templates/` | Trusted report source templates |
+| `tests/`, `scripts/` | Verification and preparation tooling |
+| `storage/` | Private database, evidence, reports and backups; excluded from source control |
+
+Each domain owns its models, forms, views, URLs, migrations and services. Shared helpers belong in core; domain services do not import views.
+
+## Request and mutation flow
+
+Views resolve the authorized engagement, validate forms, call services and render or redirect. Significant mutations follow this sequence:
+
+1. Start a short explicit transaction and acquire the engagement mutation lock.
+2. Recheck the actor's current permissions and the engagement's lifecycle state.
+3. Resolve child records within that engagement and validate relationships.
+4. Compare the submitted integer version and update atomically, incrementing it.
+5. Commit the mutation and its audit records together.
+
+`apps/core/concurrency.py` supplies compare-and-swap updates. A stale version returns HTTP 409 with the submitted draft preserved. Manual merging requires explicit review and a separate versioned save; services never refresh a version and retry over another edit. Relationship changes use the owning record's version. See [concurrent editing](concurrent-editing.md).
+
+Password hashing, file streaming, parsing, integrity checks and report rendering happen outside database write locks. File workflows stage work first, recheck authorization at publication and retain enough metadata for safe cleanup after interruption.
 
 ## Identity and authorization
 
-`accounts.User` subclasses AbstractUser and exists in accounts' initial migration before any dependent table. `is_active` controls account availability. `is_superuser` means global System Admin; staff status alone has no administrative authority in TRACE. Passwords use Django's PBKDF2 hasher; scrypt remains a supported verifier. Registration does not exist. Standard users are created through the System Admin UI; administrators are bootstrapped with trusted Django management commands.
+`accounts.User` extends Django's `AbstractUser` and is established in the first accounts migration. Use `settings.AUTH_USER_MODEL` or `get_user_model()` for references. Keep existing migration history intact.
 
-`EngagementMembership` contains a UUID, engagement FK, user FK, role, integer version and timestamp. The database enforces one membership per engagement/user and a valid role. A user can hold different roles in different engagements. The policy matrix in README defines Lead, Tester, Reviewer and Viewer capabilities.
+An active superuser is a global **System Admin**. Staff status alone grants no application authority. Other users hold Lead, Tester, Reviewer or Viewer memberships per engagement; a person's role can differ between engagements. See [roles and access](engagements.md#roles-and-access).
 
-`visible_engagements`, `has_permission`, `get_engagement` and `get_scoped_object` centralize policy. They consult current active/global state so a stale Python actor object cannot retain disabled access. Views authorize before reading objects and services authorize independently. Unknown capabilities fail closed. Invisible parents/foreign child IDs produce 404; insufficient capabilities within a visible parent produce 403. Future domain models should carry an engagement FK and use scoped lookups rather than fetching a UUID first.
+`engagements.permissions` centralizes access through `visible_engagements`, `has_permission`, `get_engagement` and `get_scoped_object`. Both HTTP endpoints and direct service calls enforce it. Unknown capabilities fail closed. Invisible engagements and foreign child IDs return 404; forbidden actions within a visible engagement return 403. Ownership, assignment, UUIDs and HTMX headers grant no access.
 
-Membership mutations lock the parent engagement inside a short transaction, recheck role permissions, compare the submitted row version, perform the mutation and write its audit event atomically. SQLite IMMEDIATE transactions serialize membership administration and other writes. UUID membership identity plus version prevents a removed-and-recreated row accepting an old edit. Leads cannot modify their own access, and membership operations preserve another active Lead when demoting/revoking one. A System Admin may disable an incident-related account even if it is an engagement's sole Lead, then appoint a replacement.
+Completed/archived content is read-only. Team access and administrative quota policies remain maintainable. Existing report setups can generate derived exports without changing closed source content. Domain records use protected relationships; the limited operator [purge workflow](engagements.md#protected-deletion-and-administrative-purge) refuses unsupported modules.
 
-Account profile changes allowlist only first name, last name and email and compare the version. Account status changes reserve the SQLite writer, prevent disabling the last active System Admin, compare versions and increment a separate session generation. This invalidates older cookies even after reactivation. Django session HMAC/fallback helpers incorporate that generation and the password hash, preserving secret-rotation support. Password changes validate old/new passwords, hash outside the write lock, compare both the current password hash and version, then preserve the caller session using Django's helper. Global administrator tools and direct database access are trusted operator boundaries.
+## Authentication and audit
 
-Evidence endpoints and services authorize every operation through engagement permissions. Original downloads require DOWNLOAD_EVIDENCE; uploads and metadata mutations require ATTACH_EVIDENCE. Report setup, generation and downloads require GENERATE_REPORTS; Testers share this capability with Leads, Reviewers and active System Admins.
+Django supplies password hashing, validators, sessions, CSRF protection and safe redirects. Accounts are created by System Admins; initial administrators use `createsuperuser`. There is no public registration or default credential. Disabling an account invalidates existing sessions, including after reactivation. Password changes preserve the current session and invalidate other sessions. The last active System Admin cannot be disabled through the account UI.
 
-## Authentication controls
+Database-backed throttling covers application and Django-admin sign-in: five account attempts and thirty peer-source attempts per fifteen-minute window. Errors remain generic. Source attribution uses the actual peer address; proxy deployments may share a bucket. Operators can clear a selected bucket with `reset_login_throttle --username USERNAME` or `--source PEER_IP`.
 
-Django session authentication, CSRF middleware and safe LoginView redirect validation remain authoritative. Production uses HTTPS, secure cookies and explicit allowed hosts. Logout is POST-only. Inactive accounts cannot authenticate or retain access through an existing session.
+Application logs are JSON with allowlisted event IDs and generated request IDs. They exclude request bodies/URLs/headers, credentials, ORM debug output and raw exception text. Audit metadata is separately allowlisted; business history uses explicit redacted schemas. Mutations and their history commit together. [Audit history](audit-history.md) explains access, exports, retention and hash-chain limitations.
 
-A custom ModelBackend reserves database-backed account/source attempt counters before expensive password checking. Keys are domain-separated HMACs derived with the deployment secret. Counters use short IMMEDIATE transactions, deterministic bucket ordering and a fifteen-minute window. Failures retain reservations; successful authentication releases only reservations from the same window. Hashing occurs after the reservation transaction commits. Account and peer-source limits apply across web workers and both sign-in entry points; malformed form failures are also reserved/audited. The source bucket trusts REMOTE_ADDR, never arbitrary forwarded headers. Proxied deployments can share that bucket and should retain ingress limits.
+## Database and storage
 
-Django auth signals write success/failure/logout audit records. Failure records store HMAC account/source identifiers and a constant reason, not raw credentials or exception messages. Invalid form paths without an authenticate() call explicitly trigger the same failure recording once. Operator reset commands clear chosen throttle buckets. Audit retention is an explicit administrator dry-run/apply workflow; expired-throttle retention remains an operator concern. No background worker is introduced.
+SQLite uses local disk, a ten-second busy timeout and explicit `IMMEDIATE` transactions; `ATOMIC_REQUESTS` is disabled. Enable WAL with `configure_sqlite` while workers are stopped. WAL permits readers alongside one writer. Network and synchronized filesystems are unsupported.
 
-## Logging and private data
+PostgreSQL uses Django's standard backend, engagement row locks and a transaction-scoped application writer advisory lock to preserve mutation ordering. Database constraints and backend guards protect cross-engagement relationships, immutable provenance and audit records, including bulk writes. See [PostgreSQL](postgresql.md) for configuration and validated transfer.
 
-JSON application logs emit known event identifiers, timestamp, level, logger, generated request ID and selected numeric request metadata. Arbitrary messages, format arguments, requests and exception text are discarded by the formatter. Framework log messages are mapped to constant events. Correlation IDs are generated server-side. Reverse-proxy logs require a separate privacy configuration.
+Static assets are public; evidence, report artifacts and backups are private. No public media route exists. POSIX file operations enforce owner-only storage and reject unsafe paths/links. Downloads recheck engagement access and stored hashes. Evidence removal retains a tombstone; cleanup respects active readers. Quotas charge pending uploads and deferred deletions. See [evidence](evidence.md) and [storage controls](storage-controls.md).
 
-Audit events use separate allowlisted metadata and redacted business snapshots. CAS mutations return the scoped prior snapshot; services append the resulting snapshot and finding/test-case revisions transactionally. SQLite guards protect sealed bodies from ordinary application edits/deletes. An ordered SHA-256 chain and head/retention anchor permit verification; same-database hashes do not prevent a privileged operator from rewriting history. Readable engagement history and JSON export require VIEW_AUDIT; entity revisions require VIEW on the same engagement. Global history, verification and bounded retention require active System Admin authority. See [audit and revision history](audit-history.md) for redaction limits, legacy baselines, commands and checkpoint limitations.
+Report generation captures one consistent read snapshot, then verifies images and renders outside write transactions. A final transaction rechecks access before publishing immutable revisions. Trusted templates render user content as data. Rendering runs in bounded, credential-free subprocesses; this is resource isolation, not a complete OS sandbox. See [reports](reports.md).
 
-## Deployment and persistence
+## Presentation and hosting
 
-SQLite defaults to `storage/db/tdt.sqlite3`, timeout ten seconds, IMMEDIATE explicit transactions and ATOMIC_REQUESTS false. WAL is enabled through a maintenance command with workers stopped. Journal files stay on the same local disk; network/shared/synchronized filesystems are unsupported. WAL allows readers to coexist with a writer but does not allow unlimited simultaneous writers. SQLite remains the default; optional PostgreSQL uses the standard Django backend, portable replacement migration guards and matching transaction ordering. Tests use file-backed SQLite plus an opt-in real PostgreSQL integration scenario.
+Django templates, native forms and local Bootstrap/HTMX/Alpine CSP assets provide the UI. Forms work without JavaScript. Private responses disable caching and HTMX history snapshots; polls refresh read-only regions without replacing drafts. See [UI conventions](ui-conventions.md).
 
-Static files are public and collected separately. Private files have no public media route. Production refuses storage overlapping static paths. Bootstrap/HTMX/Alpine CSP files and their licenses are prepared ahead of time, verified against an operator-reviewed SHA manifest and served locally. Development has an application-owned CSS fallback; production deployment checks reject an incomplete bundle. The source checkout remains part of the native artifact because it contains templates/static files.
+Development commands default to development settings; WSGI/ASGI default to production. Production uses Waitress behind a trusted HTTPS proxy with explicit secrets/hosts. No implicit environment-file loader or runtime cloud service is required. See [installation](installation.md).
 
-Display palettes are CSS tokens in `static/css/themes.css`, shared by the application shell, forms, tables and status labels. The local `static/js/theme.js` runs before stylesheet paint, accepts only the known palette/mode values and stores only those display preferences under `trace.display` in browser local storage. Appearance controls live only on Your profile, outside its account-edit form; the saved preference applies throughout the application, including sign-in. System mode follows `prefers-color-scheme`; storage events synchronize other tabs. Storage failures preserve in-page switching, and the no-script default is Flight blue/light. Theme changes do not submit forms, replace drafts or change authorization. The SVG brand mark uses a local CSS mask to inherit the palette accent. Django administration retains its own appearance controls.
-
-Production uses Waitress behind a trusted HTTPS proxy. Its HTTPS URL scheme must match the proxy-only loopback deployment. `TRACE_TRUST_PROXY` is opt-in for alternative trusted proxy arrangements. Docker runs as a restricted UID and stores private data in a local named volume. No runtime cloud, Node, Redis, Celery, email or external identity service is needed.
-
-## Development seed orchestration
-
-`seed_demo --admin USERNAME` coordinates a fixed synthetic aerospace dataset from `apps/core/demo_data.py` using `apps/core/demo_seed.py`. Both command and orchestration enforce development/disposable-test settings and current active System Admin identity. New role-only accounts get unusable passwords and audited creation; domain records use existing services and real workflow transitions. Each exercise's bounded metadata transaction contains no file operations. Text/PNG uploads run outside transactions through evidence services, with the standard storage, parser, hash and relationship controls. A descriptor-pinned private file lease prevents concurrent seeding. Identifying notes and reserved Lead membership distinguish existing exercises, and immutable filenames include evidence tombstones when checking for existing uploads. Reruns preserve operator edits; fixed initial CAS versions prevent a changed engagement from being automatically closed. Report setups use report services before a new exercise closes; generated revisions render outside writer transactions and retain their snapshot and artifacts. Untouched interrupted exports can resume; existing reports and closed engagements are preserved. Private report storage is validated before mutations. The command adds no reset/purge path or production override. See [demo data](demo-data.md).
-
-## Engagement management
-
-EngagementStatus is a fixed TextChoices enum rather than an editable lookup table. Engagement metadata includes client, description, objectives, scope, optional start/end dates, handling marking, provenance, timestamps and integer version. Date order and valid statuses have database constraints. Legacy records retain their UUID/name/creation timestamp and receive planned/version 1 with unknown creator rather than an invented author.
-
-Engagements move planned → active, active ↔ paused, active/paused → completed, and any nonarchived state → archived. Completed and archived content is immutable through services; membership maintenance remains available for revocation/recovery. Completion preserves open milestones and their honest progress rather than silently marking them complete. All content mutations lock the parent engagement, validate state/permission and compare the relevant record version. Distinct child records have independent versions; child mutations do not invalidate an unrelated metadata draft. SQLite write reservations serialize content writes against closure.
-
-Notes are escaped plain text. Lead/System Admin can manage any note; Tester/Reviewer can create and modify their own. Milestones are Lead/Admin-owned work-plan records with due dates, independent completion state and revision. Overview progress is completed milestones divided by all milestones, including across paginated rows. It is not a test-result or finding metric.
-
-List queries start from visible_engagements and use allowlisted sort keys, bounded search, status filtering and deterministic pagination. HTMX list responses replace only the results; note/milestone mutations replace only their panel. Non-JavaScript forms remain supported. Draft errors return 400/409 and are rendered in the target; expired HTMX sessions receive a whole-page login redirect. HTMX local history snapshots are disabled, and classification banners always use saved metadata on rejected drafts.
-
-Engagement reverse relations for memberships, notes, milestones and audit use PROTECT. There is no web delete route or admin delete interface. The explicit purge_engagement command requires System Admin, archived state, exact UUID confirmation, current version and an allowlisted reason. It removes only this phase's supported child records, refuses unknown module records, retains audit UUID references, and detaches audit FKs atomically. AuditEvent.engagement_ref is backfilled for legacy records and survives approved purges. See docs/engagements.md for operator instructions.
-
-## Assets and structured test cases
-
-Asset ownership is an optional active engagement-member FK. Assignment is an optional active Lead/Tester engagement-member FK. Both are attribution, never access grants. Forms scope choice querysets and models/services validate membership again; all mutating services acquire the existing engagement write boundary and freeze on completed/archived status. Existing historical assignments can remain visible after membership changes; the next edit must reassign or clear an ineligible user.
-
-TestCaseAsset is an explicit unique through model. Model validation and scoped form/service lookups enforce the same engagement. SQLite triggers also reject cross-engagement inserts/updates and moving linked parent assets/cases across engagements, covering bulk ORM/M2M writes that skip full_clean. Foreign keys protect all domain records. The existing purge refuses these new modules.
-
-TestCase status validation lives in services. Start/resume establishes the first start time; terminal outcomes record completion, and reopening clears completion without deleting previous text/start. Outcome, status-domain and timestamp-order database constraints add integrity checks. Category/status/owner/title/update filters use engagement-first indexes; through-FK indexes support asset filtering. Summary counts operate over the full filtered queryset, not the paginated page.
-
-Templates contain only reusable definition fields and are globally curated by System Admin. Creation snapshots the selected version, resets execution state, and never inherits results/assignments/assets. Source-version conflicts preserve the user's draft. A bounded atomic local JSON import can load starter procedures without network access. Notes/references use scoped case parents, independent versions, author restrictions and audit events without unrestricted content. Shared templates are not an engagement export mechanism.
-
-## Findings
-
-Findings have stable UUIDs, integer compare-and-swap versions, author/reviewer attribution and timestamps. The engagement owns findings through PROTECT; explicit FindingAsset and FindingTestCase links validate scope in forms/models and use SQLite INSERT/UPDATE and parent-update guards for bulk writes. No web delete exists, and findings block the engagement purge. Engagement-first indexes support severity, status, title and update filtering.
-
-Lead/Tester/Admin can create and edit drafts and submit for review. Lead/Reviewer/Admin can return a submitted finding to draft or independently confirm it. Confirmed findings can become remediated or accepted risk; reopening sends a finding through review again. Only drafts allow content changes. Authors cannot approve their own findings, including Admins. All mutations reserve SQLite's writer lock through the configured IMMEDIATE atomic transaction, recheck engagement authorization/read-only state, compare versions and commit allowlisted audit metadata with the mutation. Narratives are never included in audit metadata.
-
-Shared FindingTemplate records expose only reusable definitions; only active System Admins can curate them. Copy is a POST operation creating a new draft with the current actor, no reviewer, assets or tests, plus source UUID/version provenance. Updates or retirement never alter copied findings. There is no customer-finding-to-template export.
-
-The escape-first renderer implements a deliberately limited narrative syntax with fixed HTML tags. Submitted HTML, attributes and executable links are never trusted. Original text is retained for editing and later reports; code indentation/newlines are preserved. Rendering happens outside database locks. CVSS fallback validates complete 3.0/3.1 base vectors and leaves scores null; dependency installation was unavailable in the implementation environment.
-
-Later evidence/revision modules should reference the stable finding UUID with PROTECT, scope through the engagement, reuse the parent mutation lock and record the finding version. Current audit events are mutation provenance, not narrative revision history. Evidence now links to finding UUIDs through protected, engagement-scoped relationships. Narrative revision storage remains deferred; reporting retains immutable snapshots and format artifacts.
-
-## Private evidence
-
-Evidence stores immutable file metadata in SQLite and random-key originals/thumbnails under EVIDENCE_ROOT/<engagement UUID hex>/. Owner-only directories/files (0700/0600), descriptor-relative operations, O_NOFOLLOW, exclusive creation, ownership checks and single-link regular-file checks protect the storage boundary. Evidence storage cannot overlap static roots or their symlink aliases. No public media URL or original-inline endpoint exists. This implementation requires POSIX Linux/macOS.
-
-The upload handler spools one bounded file directly to private storage, retaining an exclusive advisory file lease. The service hashes and validates a second staged copy outside SQLite locks. It fsyncs files and directories before a short IMMEDIATE transaction rechecks authorization/lifecycle and inserts provenance, associations and audit metadata together. Final and spool leases prevent cleanup during live uploads. Failure closes/removes staged files; ambiguous commit outcomes preserve referenced files and defer uncertain cleanup. Process termination can leave private orphans, reclaimed after a grace period.
-
-Type classification uses file content rather than extension or supplied MIME. Supported content is PNG/JPEG, UTF-8 text, PDF signatures/EOF, classic PCAP and optionally directory-validated ZIP. Documents and binary artifacts remain untrusted, are never extracted/executed/rendered, and have no inline previews. Active filenames and obvious HTML/SVG/script documents are rejected. Text logs may contain hostile snippets, so originals always use attachment, octet-stream, nosniff, sandbox CSP, no-store and server-generated filenames.
-
-Pillow parses PNG/JPEG in a fixed worker with no inherited application environment, a five-second CPU budget, ten-second wall timeout, image size/dimension limits and (where supported) a 512 MiB address-space limit. Darwin may reject address-space limits; image bounds/CPU/timeout remain enforced. Animated images are rejected. Fresh RGB PNG thumbnails contain pixels only and are the sole inline evidence responses. Every download rechecks SHA-256/size before streaming the same descriptor; originals and thumbnails have separate immutable digests.
-
-Descriptions and relationships use integer compare-and-swap versions. SQLite triggers guard immutable provenance and evidence audit metadata, plus scope constraints on relation inserts/updates and linked parent moves. Every evidence mutation rechecks the engagement under the shared writer lock; completed/archived evidence remains downloadable/verifiable. Links to at least one case/finding are required by forms/services. Evidence does not extend operator purge support.
-
-Removal creates a versioned tombstone and audit event inside the transaction; only an on_commit callback unlinks files. A downloaded file retains its shared lease, so cleanup defers rather than interfering with in-flight readers. The cleanup_evidence command removes tombstone files and unreferenced files older than its grace period after obtaining an exclusive lease and checking current DB references. It retains metadata/audit records. This is unlinking, not guaranteed physical erasure of disk blocks, backups or filesystem snapshots.
-
-## Concurrent editing and presence
-
-All fifteen editable domain models have positive integer version defaults: User, Engagement, EngagementMembership, EngagementNote, EngagementMilestone, Asset, TestCase, TestCaseTemplate, TestCaseNote, TestCaseReference, Finding, FindingTemplate, Evidence, Report and ReportTemplate. Their edit/action forms carry the loaded version. Immutable association rows change under the owning record's version and parent transaction. Audit records, throttle buckets and transient presence are server-managed rather than editable documents.
-
-Authorized services use core.concurrency.cas_update with a PK-scoped queryset, the expected version and allowed changes inside an IMMEDIATE transaction. The helper performs one UPDATE with version = F(version) + 1. A zero-row result reuses the identical authorized queryset: a missing record produces 404, while a visible current record produces EditConflict. Existing early version checks for state transitions are supplementary; successful writes always use CAS. Deletes also filter the expected version. Audit and association changes commit with the mutation. No user mutation is retried with a new version, and SQLite row locks are not assumed.
-
-The shared HTML renderer returns a 409 conflict page/fragment with escaped submitted values, current saved values and both versions. It rechecks current access before reading comparisons. Draft values stay in the bound response form and never enter sessions, URLs or audit metadata. Password fields are excluded from comparisons and must be re-entered. A signed actor/path/record/version review token lets an explicit Prepare action construct a manual-merge draft; this action performs no content mutation. The separate Save still uses CAS. A further intervening update requires another comparison.
-
-Editor status is a read-only, scoped GET fragment every 20 seconds; the dashboard refreshes authorized engagement cards every 30 seconds. Neither polls a form. Optional presence starts only after the user clicks Share editor presence. Its CSRF-protected heartbeat uses a short IMMEDIATE transaction every 20 seconds, expires after 60 seconds and displays only users who still have edit permission. Expired rows are removed in bounded batches. Core.EditorPresence stores an engagement UUID reference without a protected domain relationship because it is ephemeral and grants no access. Disabling TRACE_EDITOR_PRESENCE_ENABLED stops presence queries/writes.
-
-Only heartbeat upserts retry identified SQLite BUSY/LOCKED errors, with two short bounded delays; content updates never retry automatically. HTMX conflicts replace the submitted form only. Refreshes containing another dirty form are held, and expired polling/saving sessions do not navigate away from a draft. Native forms retain server-side conflict review and manual merge. See docs/concurrent-editing.md for operational limits and measured test scenarios.
-
-## Reporting engine
-
-Report is a versioned engagement-scoped setup record; ReportFinding gives explicit scoped positions under the report's CAS mutation. ReportTemplate stores only validated section ordering and palette choices, curated by System Admins. New reports copy its metadata/version; edits/retirement do not alter existing setups. Logos reference active image evidence from the same engagement. SQLite scope/immutability guards protect links, logos, revisions and artifacts. All report records block the engagement purge.
-
-Generation reserves a uniquely numbered pending ReportRevision in a short IMMEDIATE transaction. Data assembly then opens a separate ORM connection with DEFERRED and PRAGMA query_only, selecting the setup, engagement, ordered findings, actual test results and relevant evidence metadata from one read snapshot. No rendering, hashing or file processing happens in that transaction. Source object versions and copied template metadata enter a canonical JSON snapshot. Read-only snapshot collection can coexist with a committing writer under WAL; no SQLite row locks are assumed.
-
-After closing the read transaction, the engine verifies/reprocesses evidence thumbnails through the bounded Pillow worker and embeds fresh PNG bytes. Separate adapters produce editable python-docx documents and trusted-template HTML; the same HTML feeds an isolated WeasyPrint PDF worker. User template content is never compiled. Static trusted CSS is inlined, narrative formatting reuses the escape-first renderer, and PDF fetching permits only bounded PNG data URIs. Native dependencies and fonts are installed before offline use. Files are hashed/fsynced under random private storage keys outside write locks.
-
-A final short IMMEDIATE transaction rechecks current permission, publishes immutable artifact metadata and completes/audits the revision with CAS. Permission revocation or errors prevent publication; staged files are cleaned after rollback, with uncertain commits retaining referenced files. Failures have fixed codes, not exception text. Snapshot JSON is a private artifact alongside HTML/DOCX/PDF; it is not exposed by the download route. Published artifacts and revisions remain unchanged when source data, setup or shared templates change. Renderer versions, source versions, generated time/actor, revision number and SHA-256/size metadata support traceability.
-
-Report setup is frozen with completed/archived source content. Generating a derived snapshot/export from saved setup remains a read/export operation permitted by GENERATE_REPORTS on closed engagements; it does not edit sources or setup. All report downloads, including sandboxed HTML previews, recheck that capability and verify artifact integrity. HTML previews use sandbox CSP and no scripts/resources beyond inlined CSS and PNG data. No public media URL exists.
-
-Report storage is separate from evidence/static storage and uses the same POSIX descriptor-relative, no-symlink, owner-only file protections. cleanup_reports removes old unreferenced files under exclusive leases and marks abandoned pending revisions failed, preserving history. Report references/embedded pixels are retained independently of later evidence removal. See docs/reports.md for customization, resource budgets, deterministic behavior and dependencies.
-
-## Operational UI
-
-The core dashboard/search read layer scopes every query through current engagement access before filtering, aggregating or paginating. Summaries have bounded row lists, independent aggregates and joined display relationships to avoid N+1 access. Activity panels project only allowlisted action summaries, never full audit bodies; audit permissions remain separate. Engagement test execution and milestone progress are distinct, measured quantities.
-
-Breadcrumbs, role-aware navigation, Bootstrap bound fields, generic error pages and private HTMX partials share the application shell. Informational dashboard polls never replace editors. Local vendor assets now include the OFL-licensed Inter font, with no runtime font service. See [UI conventions](ui-conventions.md) for accessibility, themes, pagination, cache policy and bounded queries.
-
-## Installation and recovery
-
-Pinned transitive runtime/test/PostgreSQL requirements support matched-platform binary wheelhouses. Native and Compose startup use the same loopback-first Waitress entry point, explicit trusted proxy policy, pending-migration checks and shared maintenance gate. Containers copy an explicit source allowlist and keep runtime storage in a private volume. See [installation](installation.md).
-
-Exclusive SQLite backups use the backup API rather than copying WAL files, then copy verified referenced evidence/report files from that snapshot. Validation checks database/foreign-key consistency, migration inventory, file references/hashes and audit continuity. Restore publishes a new private root and never overwrites existing storage. Optional PostgreSQL transfer uses full-precision Django serialization, validated transactional loading into an empty database and sequence reset. See [operations](operations.md) and [database transfer](postgresql.md).
-
-Security limitations are described in [SECURITY.md](../SECURITY.md). Every non-static response receives a private/no-store policy from the outer request middleware, including early errors/redirects. All report formats render in a bounded credential-free subprocess with process-shared capacity slots. Backup publication uses native atomic no-replace rename with a pinned parent descriptor on supported Linux/macOS. These defenses assume operator-controlled private directories and do not protect against a fully privileged host administrator.
-
-## Storage capacity and evidence accounting
-
-`apps/evidence/quotas.py` owns versioned engagement policies and operational evidence allocations. Reservations span HTTP private staging and direct service uploads, with atomic quota checks and an authorized final publication transaction. POSIX leases coordinate capacity decisions across processes while body I/O and filesystem probes remain outside database writer locks. Existing metadata is included without migration-time file scans. Deferred unlinks remain charged, and the explicit operator reconciliation command handles abandoned leases, legacy rows and orphan cleanup. See [storage controls](storage-controls.md).
+Backup, restore and transfer use an exclusive maintenance gate with all writers stopped. SQLite backups pair a verified database snapshot with its referenced private files. Restore publishes a new root rather than overwriting live storage. See [operations](operations.md), [development checks](../README.md#development-checks) and [security limitations](../SECURITY.md).

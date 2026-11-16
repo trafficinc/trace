@@ -1,17 +1,17 @@
-# Optional PostgreSQL and validated transfer
+# PostgreSQL
 
-SQLite is the default and requires no database service. PostgreSQL is optional, using `django.db.backends.postgresql` and the pinned Psycopg 3 binary driver. PostgreSQL 17 is exercised by the integration scenario. Private evidence/reports still use the application server's POSIX local disk; changing databases does not move or publish those files.
+SQLite is the default. Optional PostgreSQL uses Django's standard backend and Psycopg 3; PostgreSQL 17 is covered by the integration scenario. Private evidence/reports remain on the application host's POSIX local disk.
 
 ## Configuration
 
-Install `python -m pip install -r requirements/postgres.txt` in the application virtualenv (offline: prepare the wheelhouse with `--postgres`). Use a dedicated database and login role, with permission to own/migrate its application tables. Do not use a database superuser as the application's regular account. On a local PostgreSQL host, an administrator can create a role and database with standard PostgreSQL tools:
+Install `requirements/postgres.txt`; for offline preparation, include `--postgres`. Use a dedicated database owner/application role rather than a database superuser:
 
 ```sh
 createuser --pwprompt trace
 createdb --owner=trace trace
 ```
 
-Set these in the private service environment, without placing the password in shell history or source control:
+Set these in the protected service environment:
 
 ```text
 TRACE_DB_ENGINE=postgresql
@@ -23,42 +23,50 @@ TRACE_DB_PORT=5432
 TRACE_DB_SSLMODE=prefer
 ```
 
-For a remote database require `TRACE_DB_SSLMODE=verify-full`, a trusted server certificate, libpq's protected CA configuration (for example `PGSSLROOTCERT`) and an explicit private database network/firewall policy. The `prefer` default is for a locally administered endpoint, not a guarantee of verified remote TLS. Never use a trust-authentication rule on an exposed database. Keep the Django server loopback-bound behind its HTTPS proxy.
+For remote databases use `verify-full`, a trusted certificate/CA configuration such as `PGSSLROOTCERT`, and a private network/firewall policy. `prefer` does not guarantee verified TLS. Keep passwords out of shell history and source control.
 
-For a fresh installation, run `migrate`, `collectstatic`, deployment checks and `createsuperuser` normally with production settings. Do **not** run `configure_sqlite`. For Docker, set `TRACE_WITH_POSTGRES=1` when building the image and supply the database environment variables through the protected Compose environment file. The default Compose deployment remains single-container SQLite; it does not start a PostgreSQL service or expose a database port.
+Fresh installations use normal production migration/static/admin setup; skip `configure_sqlite`. For Docker, build with `TRACE_WITH_POSTGRES=1` and pass database settings through the protected environment. Default Compose does not start PostgreSQL.
 
 ## Integrity and concurrency parity
 
-Existing applied migrations are not rewritten. Supported Django replacement migrations preserve their historical SQLite operations, while fixed reviewed guard predicates are emitted as PostgreSQL row triggers/functions on a fresh PostgreSQL schema. The guards continue to enforce engagement relationships, evidence/report provenance and audit/revision protection. Standard Django model constraints remain in place.
-
-Mutations keep integer compare-and-swap updates. SQLite reserves its writer with IMMEDIATE transactions; PostgreSQL uses a transaction-scoped application-writer advisory lock to preserve that ordering and explicit engagement row locks. Account/throttle invariants and the global audit head use the same ordering. Long hashing/file operations/rendering remain outside those write transactions. Report/audit read snapshots use PostgreSQL repeatable-read, read-only transactions. This optional backend does not claim unlimited parallel writers, and direct SQL remains a privileged boundary.
+Supported replacement migrations preserve applied history while installing backend-specific integrity guards. Both databases enforce engagement relationships, immutable provenance and audit/revision protection. Versioned mutations retain application-writer ordering; PostgreSQL adds engagement row locks. Read snapshots use repeatable-read/read-only transactions. See [architecture](architecture.md#database-and-storage).
 
 ## SQLite → PostgreSQL transfer
 
-Use the **same reviewed application release** on source and destination. This is an exclusive operator workflow into an **empty** PostgreSQL application database. It is not a live replication or in-place conversion command.
+Use the **same reviewed release** on both ends and an **empty** destination. This is an exclusive offline transfer.
 
-1. Rehearse with an isolated restored copy. Enter maintenance, drain the proxy and stop all writers. Create and validate a coordinated SQLite/file backup using `backup_tdt`; retain the original release and secret/environment separately.
-2. With the original SQLite environment selected, export a Django-supported logical representation:
+1. Rehearse on an isolated restore. Stop all writers and create/validate a [coordinated backup](operations.md#consistent-sqlite-backups). Preserve the source release and secret.
+2. With the source SQLite configuration selected, export:
 
 ```sh
-python manage.py export_database --admin ADMIN_USERNAME --maintenance --output /private/transfer/trace.json
+python manage.py export_database --admin ADMIN_USERNAME --maintenance --output /private/transfer/trace.json --settings=config.settings.production
 ```
 
-The parent must be owner-only; the output must be new. The export contains sensitive documentation, users and password hashes. It includes a companion `.manifest.json` with SHA-256/size, model row counts and an audit checkpoint. It uses Django serialization with natural foreign keys and a custom datetime encoder preserving full microseconds, which is necessary to preserve existing audit commitments. It omits sessions, admin logs and framework-generated permissions/content types; permissions are regenerated by `migrate`. Keep the source secret key and application user passwords unchanged unless an explicit security rotation is planned.
+Use an owner-only parent and a new output. The sensitive export includes users/password hashes and a companion manifest with hashes, counts and audit checkpoint. Sessions/admin logs are omitted; permissions are regenerated. Preserve the secret and full-precision serialized timestamps. Manifests must come from a trusted operator; hashes are not signatures.
 
-3. Create a fresh PostgreSQL database owned by the application's dedicated role. Select its configuration and a **separate private storage root**. Run migrations into the empty destination:
+3. Select the empty PostgreSQL database and a **separate private storage root**, then run:
 
 ```sh
 python manage.py migrate --noinput --settings=config.settings.production
 python manage.py import_postgres --source /private/transfer/trace.json --maintenance --settings=config.settings.production
 ```
 
-`import_postgres` refuses a nonempty application/user/group destination, validates the fixture's checksum/schema inventory, and uses Django `loaddata` inside one exclusive transaction. As the table owner it temporarily disables user triggers for trusted logical loading, then checks foreign keys, cross-engagement relationships, row counts and the complete audit chain/checkpoint, resets integer sequences and restores triggers before commit. Any failure rolls back import and trigger changes together. Never bypass validation with `--fake` or manually reseal changed audit records. Transfer manifests must come from a trusted operator: same-file hashes are integrity checks, not signatures protecting against a malicious fixture author.
+Import refuses nonempty destinations, validates the manifest/schema inventory and loads transactionally. It temporarily disables user triggers as table owner, then checks relationships, counts and audit continuity, resets sequences and restores triggers before commit. Failure rolls back. Never bypass checks with `--fake` or reseal altered history.
 
-4. Restore/copy the matching evidence and report directories from the coordinated backup into the separate destination storage root, preserving `0700` directories and `0600` non-executable files. One convenient method is `restore_tdt` into a new root before selecting PostgreSQL; leave its restored SQLite file as a protected rollback reference, then set `TRACE_DB_ENGINE=postgresql`. The application uses that root's private files and the PostgreSQL database. Do not point two writable instances at those files.
-5. Run production checks and `verify_audit --admin ADMIN_USERNAME`. Recheck role boundaries, representative evidence downloads/integrity and a fresh report export. Start on loopback and open the proxy only after validation. Confirm that imported users can authenticate and create new records; the importer resets sequences so new integer IDs do not collide.
-6. Retain the stopped SQLite source and coordinated backup for rollback. To roll back before accepting new writes, select the original release/configuration and original coherent SQLite/file snapshot. After PostgreSQL accepts new work, reverting to an earlier SQLite snapshot loses those writes; use a separately reviewed reconciliation/recovery plan. There is no automatic PostgreSQL-to-SQLite live merge.
+4. Restore/copy matching evidence/reports from the coordinated backup into the new root, retaining `0700` directories/`0600` files. `restore_tdt` can prepare the root before PostgreSQL is selected; keep its SQLite file for rollback. Never share private files between two writable instances.
+5. Run deployment checks and `verify_audit` with production settings. Validate account access, roles, evidence integrity, report generation and new-record creation before reopening the proxy.
+6. Retain the stopped SQLite source and backup. Rollback after PostgreSQL accepts writes requires a reviewed reconciliation plan; there is no automatic reverse merge.
 
 ## PostgreSQL backups
 
-`backup_tdt` intentionally supports SQLite only. For PostgreSQL, stop writers using the same maintenance procedure, take a database-owner `pg_dump --format=custom` backup and copy the matching private files with their hash inventory from the same stopped instance. Use PostgreSQL-supported restore into a new database, validate row counts/relationships/audit and file hashes, then switch configuration. Protect database credentials with libpq's mode-0600 password/service files rather than command arguments. Retain and rehearse both database and file recovery; a database dump alone cannot recover evidence.
+`backup_tdt` is SQLite-only. Stop writers, take `pg_dump --format=custom` and copy matching private files/hash inventory from the same stopped instance. Restore into a new database/root, verify relationships/audit/file hashes and revalidate access before switching. Protect credentials with libpq's private password/service files, not command arguments. A database dump alone cannot recover evidence.
+
+## Integration verification
+
+Install `requirements/postgres.txt` alongside test dependencies. Set `TRACE_TEST_PG_DSN` privately to a dedicated disposable server with database-creation privileges, then run:
+
+```sh
+python -m pytest tests/test_postgres.py -v
+```
+
+The helper creates/drops a UUID-named database and checks migration, transfer, concurrency and integrity guards. Never supply an application/production server connection. See the [development checks](../README.md#development-checks) for the standard suite.

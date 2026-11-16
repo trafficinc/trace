@@ -1,28 +1,27 @@
-# Reporting
+# Reports
 
-Open an engagement and choose **Reports → New report**. Lead, Tester, Reviewer and active System Admin users have GENERATE_REPORTS; Viewers cannot configure, generate, preview or download reports. Every lookup/service is engagement-scoped. Assignment, authorship and UUID possession do not grant export access.
+Open **Reports → New report** in an engagement. Leads, Testers, Reviewers and active System Admins can configure, generate, preview and download reports; Viewers cannot.
 
-Save the report title, executive summary, methodology, recommendations, header/footer and exact handling marking. The initial marking is copied from the engagement; an authorized generator can explicitly change or clear it. No classification is assumed. Choose a logo from active PNG/JPEG evidence in this engagement, and enable/disable evidence images. Each included finding gets a distinct position; unchecked findings are excluded. Findings are initially selected only if confirmed, but authorized users can deliberately include other statuses, which remain labeled in the output.
+## Set up a report
 
-Use **Additional evidence to include** to select engagement evidence directly, including screenshots linked only to test cases. Hold Ctrl (Windows/Linux) or Command (Mac) to select multiple items. This supplements evidence related to selected findings and their related test cases; duplicate references appear once. Removed evidence is omitted. **Include images** embeds supported, verified image thumbnails in **Evidence references**; other file types remain references. Save the setup, then generate a new revision and open its preview or download. Earlier revisions never change. Evidence selection does not modify finding or test-case links, and shared report templates do not copy these selections.
+1. Enter title, summary, methodology, recommendations, header/footer and handling marking. The marking starts from the engagement and can be explicitly changed or cleared.
+2. Select findings and give each a distinct position. Confirmed findings are selected initially; other statuses can be included and stay labelled.
+3. Optionally select a logo from active engagement image evidence and choose **Additional evidence to include**. These supplement evidence associated with selected findings/tests; duplicates and removed evidence are omitted.
+4. Enable **Include images** to embed supported thumbnails, then save and generate a revision. Other file types remain references.
 
-The HTML preview shows the supplied handling marking once on the title page. PDF/printed HTML and Word retain the marking on the title page and in page headers and footers.
-
-Report setup is versioned. Stale edits return the normal 409 comparison/manual-merge workflow with the submitted finding selection intact. Setup cannot change after engagement completion/archive. Existing setup can still generate a derived export on a closed engagement without modifying source content.
+Setup edits are versioned and use [conflict review](concurrent-editing.md). Completion/archive freezes setup, but existing setups can still generate derived exports. Shared templates omit customer content and evidence selections.
 
 ## Generate and preview
 
-**Generate DOCX, PDF and HTML** creates a numbered revision. All formats use one captured dataset, including the engagement, report options/template version, ordered findings, actual test summaries, severity counts, relevant evidence references and source record versions. The executive summary is supplied text; when blank, it summarizes only recorded test/selected-finding counts. No scanning or invented assessment results are involved.
+**Generate DOCX, PDF and HTML** captures one consistent dataset and creates a numbered revision. Outputs use recorded findings/tests and supplied text; no assessment results are invented. Rendering happens outside write locks, and publication rechecks access.
 
-The source is read in a separate read-only SQLite transaction. Image verification, rendering, hashing and file writing happen after that transaction closes and outside SQLite write locks. The final publication transaction rechecks access, completes the revision and commits audit/artifact metadata. Source edits during rendering do not alter the captured dataset or overwrite newer setup. Revoked access prevents publication.
+Ready revisions offer editable DOCX, PDF, self-contained HTML and a sandboxed **Safe preview**. Downloads verify hashes and current report permission. Handling markings appear on the title page; Word and PDF/printed HTML also retain page headers/footers.
 
-Each ready revision offers editable **DOCX**, **PDF**, self-contained **HTML** and a **Safe preview**. Preview uses the stored HTML with a sandbox CSP, disabled scripts/forms and only inlined styles/PNG data. Original evidence documents/scripts are never rendered. Downloads require current GENERATE_REPORTS permission and verify SHA-256/size before streaming.
-
-Revision history retains generation time/actor, setup version, renderer versions, status and artifact hashes. Canonical snapshot JSON is stored privately for provenance, alongside the three formats; it has no web download route. Later source/template/setup edits and source evidence deletion do not change existing revisions. Captured image pixels therefore require independent report-retention decisions. Engagements containing reports are protected from the separate archived-engagement purge.
+Revisions retain source/setup/template versions, actor/time, renderer versions and hashes. Their private JSON snapshot has no web download route. Later edits, template retirement and evidence removal do not change existing artifacts or embedded images. Reports block engagement purge; backups must include their private files.
 
 ## Offline PDF dependencies
 
-DOCX uses **python-docx 1.2+**. PDF uses **WeasyPrint 70.x**, a maintained offline HTML/CSS renderer, plus its native Pango/font stack. Install native packages while preparing the host, then Python dependencies:
+Python dependencies include python-docx and WeasyPrint. PDF also requires native Pango libraries and fonts, installed before offline use.
 
 Debian/Ubuntu:
 
@@ -39,22 +38,11 @@ brew install pango
 python -m pip install -r requirements/test.txt
 ```
 
-On Apple Silicon, `/opt/homebrew/lib` is detected by default. If native libraries are elsewhere, export `TRACE_REPORT_WEASYPRINT_DLL_DIRECTORIES` with the appropriate library directory, such as `/usr/local/lib`. The fixed PDF worker receives only this operator-controlled library setting and a minimal environment, not application secrets. Keep the native libraries and fonts consistent between machines for reproducible layout. Reports request DejaVu Sans/Mono and use installed system fallbacks if absent. Font packages are installed ahead of time; there are no remote fonts or runtime downloads.
-
-The Dockerfile installs the native packages and fonts at image-build time. For isolated hosts, transfer matching native packages or a prepared image, plus the Python wheelhouse, source tree (including report_templates/static assets) and existing private storage. Rendering requires neither LibreOffice nor an external PDF service.
-
-See the [WeasyPrint installation guide](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html) and [resource/security guidance](https://doc.courtbouillon.org/weasyprint/stable/common_use_cases.html).
+Apple Silicon detects `/opt/homebrew/lib`; set `TRACE_REPORT_WEASYPRINT_DLL_DIRECTORIES` for other locations, such as `/usr/local/lib`. Reports use local DejaVu fonts/system fallbacks. Keep libraries/fonts consistent for reproducible layout. The Dockerfile includes these dependencies; see [offline installation](installation.md#offline-installation) for isolated hosts.
 
 ## Customize templates safely
 
-System Admins curate **Report templates**. A reusable template contains:
-
-- A name.
-- A fixed palette: Flight blue, graphite or aubergine.
-- Every supported section exactly once, in the desired order.
-- Availability/retirement state and an integer version.
-
-Supported section names are:
+System Admins curate **Report templates** with a name, palette, availability and ordered sections. Include every section exactly once:
 
 ```text
 executive_summary
@@ -68,11 +56,9 @@ evidence
 recommendations
 ```
 
-From New report, choose a template and click **Load template** before editing the draft. Saving copies its palette/section order/version. Template edits or retirement never change existing report setups or historical exports. Create a new report to use a different template. Customer narrative, logo/evidence, selections and handling markings belong to the engagement report, not the shared template.
+Choose a template and **Load template** before saving a new report. Its palette/order/version are copied; later template changes leave setups and revisions unchanged. Create a new report to use another template. Keep customer narratives, logos, evidence and markings in the engagement report.
 
-Administrators submit data options, not Django/Jinja code, uploaded Word macros, raw HTML, arbitrary CSS or filesystem paths. Text such as `{{ secret }}` or `{% include ... %}` is literal report content, never compiled. Narratives use the existing escape-first formatting subset. DOCX preserves editable headings, emphasis, lists, whitespace, code and reference URLs; it does not execute fields derived from user input.
-
-For deeper branding changes, a trusted source-code maintainer can edit `report_templates/engagement.html`, `static/css/report.css` and the adapter functions in `apps/reports/rendering.py`. These are fixed operator-owned files; no submitted path or template source is loaded. Keep CSS/fonts/images offline. PDF resource fetching accepts only bounded regenerated PNG data URIs and rejects HTTP, HTTPS, file, FTP and other resources. Old artifacts remain unchanged after code customization.
+Template options are data, not executable Django/Jinja, HTML, CSS or macros. Trusted maintainers can customize `report_templates/engagement.html`, `static/css/report.css` and `apps/reports/rendering.py`. Keep resources local; PDF fetching accepts only bounded regenerated PNG data URIs. Existing artifacts remain unchanged.
 
 ## Resource limits and reproducibility
 
@@ -87,24 +73,18 @@ For deeper branding changes, a trusted source-code maintainer can edit `report_t
 | TRACE_REPORT_MAX_ARTIFACT_BYTES | 100 MiB per artifact | 100 MiB |
 | TRACE_REPORT_RENDER_TIMEOUT | 90 seconds | 90 seconds |
 
-The setup editor supports 500 available findings. Regenerated images are PNGs at most 512 × 512, bounded to 2 MiB each and resized proportionally within report page dimensions. A logo is also subject to image limits. Source thumbnails are hash-verified and reparsed with the resource-limited Pillow worker before copying into a report.
+The editor supports 500 available findings. Embedded PNGs are at most 512 × 512 and 2 MiB each; logos count toward image limits. Corrupt/unavailable sources fail explicitly. Narrow the selection/content when limits are reached.
 
-The PDF worker caps input at 24 MiB, CPU at 60 seconds, wall time at 90 seconds and pages at 300. Linux enforces a 1 GiB address-space cap; macOS retains the other bounds when the OS rejects that cap. Large or unavailable/corrupt sources fail explicitly; the failed revision is retained and sources remain unchanged. Narrow the export selection/content rather than expecting unbounded output.
+All formats render in a fixed credential-free subprocess. The PDF worker bounds input to 24 MiB, CPU to sixty seconds, wall time to ninety seconds and pages to 300; Linux also caps memory at 1 GiB. macOS retains other bounds where memory caps are unavailable. `TRACE_REPORT_CONCURRENT_EXPORTS` defaults to 1 (range 1–8); capacity rejection creates no revision. These limits provide resource isolation, not an OS security sandbox.
 
-Canonical snapshot JSON uses stable keys; finding/test/evidence order is explicit or deterministic. Identical snapshots produce repeatable HTML/DOCX with fixed document properties and normalized DOCX ZIP ordering/timestamps. PDF identifiers and creation metadata derive from the snapshot, but PDF bytes/layout can vary with renderer/native library/font versions. Revision IDs/timestamps intentionally differ for new generation attempts. Original artifact bytes are retained instead of regenerating downloads against changing data.
+Canonical snapshots give stable ordering and repeatable HTML/DOCX. PDF bytes/layout can vary with renderer, native libraries and fonts. Downloads retain original artifact bytes rather than regenerating them.
 
 ## Failed/interrupted generation and cleanup
 
-Generation is synchronous and bounded. A failure retains a fixed failure code and revision metadata without exposing parser exceptions or source content in application/audit logs. Partial files are removed after rollback. Ambiguous commits retain files referenced by committed artifact records. File leases protect active writers/readers from orphan cleanup.
-
-For process termination or deferred cleanup:
+Failures retain revision metadata and fixed failure codes. To clean abandoned output:
 
 ```sh
 python manage.py cleanup_reports
 ```
 
-This removes unreferenced random-name files older than 24 hours and marks old pending revisions failed. `--older-than-hours HOURS` changes the grace period (minimum one hour). Current referenced artifacts and report/revision metadata remain. No public hard-delete or unreviewed engagement-retention path is added. Backups must coordinate SQLite and private report files.
-
-## Render resource boundaries
-
-HTML, DOCX and PDF adapters run together in a fixed credential-free subprocess, outside database transactions. Input/output sizes, wall time, CPU time and file output are bounded; Linux also caps address space at 1 GiB. A timeout kills the worker process group. Anonymous private temporary descriptors carry outputs; raw parser errors are not returned to users. `TRACE_REPORT_CONCURRENT_EXPORTS` defaults to 1 (allowed 1–8) and uses nonblocking process-shared slots. Capacity rejection preserves the submitted report and creates no generation revision. This is resource isolation, not an OS security sandbox. macOS does not reliably support the Linux memory cap; Windows native private storage remains unsupported as documented in installation.
+This removes unreferenced files older than twenty-four hours and marks old pending revisions failed. `--older-than-hours HOURS` changes the grace period (minimum one hour). Active leases, referenced artifacts and history are retained. Coordinate file retention and [backups](operations.md) separately from source evidence.
